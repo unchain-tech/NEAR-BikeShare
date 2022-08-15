@@ -12,6 +12,11 @@ import {
   use_bike,
   inspect_bike,
   return_bike,
+  ft_balance_of,
+  storage_balance_of,
+  storage_deposit,
+  storage_unregister,
+  ft_transfer,
 } from "./assets/js/near/utils";
 
 export default function App() {
@@ -54,18 +59,24 @@ export default function App() {
   // 初回レンダリング時の処理.
   // サイン後にもブラウザのページがリロードされるので, この内容が実行されます.
   useEffect(() => {
+    /** バイクを使用するために必要なftの量を取得しセットします。 */
+    const initAmountToUseBike = async () => {
+      setAmountToUseBike(30); // 一時的に30と仮定します。
+    };
+
     /** renderingStateを初期化します */
     const initRenderingState = async () => {
       if (!window.walletConnection.isSignedIn()) {
         setRenderingState(RenderingStates.SIGN_IN);
+      } else {
+        const is_registered = await isRegistered(window.accountId);
+        if (!is_registered) {
+          setRenderingState(RenderingStates.REGISTRATION);
+        }
       }
     };
 
-    /**
-     * allBikeInfoを初期化します。
-     * バイクの数をコントラクトから取得し,
-     * その数だけ loop 処理でバイク情報を作成します。
-     */
+    /** allBikeInfoを初期化します */
     const InitAllBikeInfo = async () => {
       const num = await num_of_bikes();
       console.log("Num of bikes:", num);
@@ -80,6 +91,7 @@ export default function App() {
       console.log("Set bikes: ", new_bikes);
     };
 
+    initAmountToUseBike();
     initRenderingState();
     InitAllBikeInfo();
   }, []);
@@ -166,6 +178,41 @@ export default function App() {
     console.log("Update bikes: ", allBikeInfo);
   };
 
+  /** account_idがftコントラクトに登録しているかを判別します。 */
+  const isRegistered = async (account_id) => {
+    const balance = await storage_balance_of(account_id);
+    console.log("user's storage balance: ", balance);
+
+    // ストレージ残高にnullが返ってくる場合は未登録を意味します.
+    if (balance === null) {
+      console.log("account is not yet registered");
+      return false;
+    } else {
+      return true;
+    }
+  };
+
+  /** ftコントラクトに登録します。 */
+  const newUserRegister = async () => {
+    try {
+      await storage_deposit();
+    } catch (e) {
+      alert(e);
+    }
+  };
+
+  /** account_idのft残高を取得し, 残高表示用オブジェクトbalanceInfoにセットします。 */
+  const prepareBalanceInfo = async (account_id) => {
+    const balance = await ft_balance_of(account_id);
+
+    let balance_info = await initialBalanceInfo();
+    balance_info.account_id = account_id;
+    balance_info.balance = balance;
+
+    setBalanceInfo(balance_info);
+    setShowBalance(true);
+  };
+
   // サインインしているアカウント情報のurlをログに表示
   console.log(
     "see:",
@@ -189,7 +236,11 @@ export default function App() {
   /** 登録解除ボタンの表示に使用します。 */
   const unregisterButton = () => {
     return (
-      <button className="link" style={{ float: "right" }}>
+      <button
+        className="link"
+        style={{ float: "right" }}
+        onClick={storage_unregister}
+      >
         Unregister
       </button>
     );
@@ -220,7 +271,7 @@ export default function App() {
         </div>
         <main>
           <p style={{ textAlign: "center", marginTop: "2.5em" }}>
-            <button>storage deposit</button>
+            <button onClick={newUserRegister}>storage deposit</button>
           </p>
         </main>
       </div>
@@ -291,8 +342,15 @@ export default function App() {
   const checkBalance = () => {
     return (
       <div class="balance_content">
-        <button>check my balance</button>
-        <button style={{ marginTop: "0.1em" }}>check contract's balance</button>
+        <button onClick={() => prepareBalanceInfo(window.accountId)}>
+          check my balance
+        </button>
+        <button
+          style={{ marginTop: "0.1em" }}
+          onClick={() => prepareBalanceInfo(window.contract.contractId)}
+        >
+          check contract's balance
+        </button>
         <span>or</span>
         <form
           onSubmit={async (event) => {
@@ -301,6 +359,7 @@ export default function App() {
             const account_to_check = account.value;
             fieldset.disabled = true;
             try {
+              await prepareBalanceInfo(account_to_check);
             } catch (e) {
               alert(e);
             }
@@ -335,6 +394,10 @@ export default function App() {
             const account_to_transfer = account.value;
             fieldset.disabled = true;
             try {
+              await ft_transfer(
+                account_to_transfer,
+                amountToUseBike.toString()
+              );
             } catch (e) {
               alert(e);
             }

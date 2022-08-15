@@ -34,6 +34,15 @@ export async function initContract() {
       changeMethods: ["use_bike", "inspect_bike", "return_bike"],
     }
   );
+
+  window.ftContract = await new Contract(
+    window.walletConnection.account(),
+    nearConfig.ftContractName,
+    {
+      viewMethods: ["ft_balance_of", "storage_balance_of"],
+      changeMethods: ["storage_deposit", "storage_unregister", "ft_transfer"],
+    }
+  );
 }
 
 export function logout() {
@@ -94,5 +103,60 @@ export async function return_bike(index) {
   let response = await window.contract.return_bike({
     index: index,
   });
+  return response;
+}
+
+/**
+ * account_idのftの残高を取得します。
+ */
+export async function ft_balance_of(account_id) {
+  let balance = await window.ftContract.ft_balance_of({
+    account_id: account_id,
+  });
+  return balance;
+}
+
+/**
+ * account_idのストレージの使用状況を表すデータ構造を取得します。
+ * account_idが登録されていない場合はnullが返るので, 登録されているかどうかの判断にこの関数を使用します。
+ */
+export async function storage_balance_of(account_id) {
+  let balance = await window.ftContract.storage_balance_of({
+    account_id: account_id,
+  });
+  return balance;
+}
+
+/** ストレージ使用量を支払い登録を行います。 */
+export async function storage_deposit() {
+  let response = await window.ftContract.storage_deposit(
+    {}, // 引数の省略 = このメソッドを呼び出しているアカウントを登録
+    "300000000000000", // ガス量の制限(in gas units)
+    "1250000000000000000000" // デポジット (in yoctoNEAR, 1 yoctoNEAR = 10^-24 NEAR)
+  );
+  return response;
+}
+
+/** アカウントの登録を解除します。 */
+// 今回は簡単のため強制的に解除する方法を引数指定でとっています。
+export async function storage_unregister() {
+  let response = await window.ftContract.storage_unregister(
+    { force: true }, // アカウントの情報に関わらず登録を解除する, 所持しているftはバーンされる
+    "300000000000000",
+    "1"
+  );
+  return response;
+}
+
+/** ftをreceiver_idへ転送します。 */
+export async function ft_transfer(receiver_id, amount) {
+  let response = await window.ftContract.ft_transfer(
+    {
+      receiver_id: receiver_id,
+      amount: amount,
+    },
+    "300000000000000",
+    "1" // セキュリティ上必要な 1 yoctoNEAR
+  );
   return response;
 }
