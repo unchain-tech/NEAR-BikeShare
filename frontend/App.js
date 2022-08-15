@@ -9,7 +9,6 @@ import {
   is_available,
   who_is_using,
   who_is_inspecting,
-  use_bike,
   inspect_bike,
   return_bike,
   ft_balance_of,
@@ -17,6 +16,8 @@ import {
   storage_deposit,
   storage_unregister,
   ft_transfer,
+  amount_to_use_bike,
+  ft_transfer_call,
 } from "./assets/js/near/utils";
 
 export default function App() {
@@ -61,7 +62,8 @@ export default function App() {
   useEffect(() => {
     /** バイクを使用するために必要なftの量を取得しセットします。 */
     const initAmountToUseBike = async () => {
-      setAmountToUseBike(30); // 一時的に30と仮定します。
+      const amount = await amount_to_use_bike(); // <- amount_to_use_bike()使用
+      setAmountToUseBike(BigInt(amount));
     };
 
     /** renderingStateを初期化します */
@@ -124,19 +126,23 @@ export default function App() {
   };
 
   /** バイクを使用, バイク情報を更新します。 */
-  const useBikeThenUpdateInfo = async (index) => {
-    console.log("Use bike");
-    // 処理中は画面を切り替えるためにrenderingStatesを変更します。
-    setRenderingState(RenderingStates.TRANSACTION);
+  const transferFtToUseBike = async (index) => {
+    console.log("Transfer ft to use bike");
 
-    try {
-      await use_bike(index);
-    } catch (e) {
-      alert(e);
+    // 不要なトランザクションを避けるためにユーザの残高を確認
+    const balance = await ft_balance_of(window.accountId);
+
+    if (balance < amountToUseBike) {
+      alert(amountToUseBike + "ft is required to use the bike");
+    } else {
+      try {
+        ft_transfer_call(index, amountToUseBike.toString());
+        // bikeコントラクト側で指定バイクの使用処理が実行されます.
+        // トランザクションへのサイン後は画面がリロードされます.
+      } catch (e) {
+        alert(e);
+      }
     }
-    await updateBikeInfo(index);
-
-    setRenderingState(RenderingStates.HOME);
   };
 
   /** バイクを点検, バイク情報を更新します。 */
@@ -312,7 +318,7 @@ export default function App() {
               <button
                 // ボタンを無効化する条件を定義
                 disabled={!bike.available}
-                onClick={() => useBikeThenUpdateInfo(index)}
+                onClick={() => transferFtToUseBike(index)}
               >
                 use
               </button>
