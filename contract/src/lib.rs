@@ -1,9 +1,16 @@
 use near_sdk::{
     borsh::{self, BorshDeserialize, BorshSerialize},
-    env, log, near_bindgen, AccountId,
+    env, ext_contract, log, near_bindgen, AccountId, Gas, PanicOnDefault, Promise, PromiseResult,
 };
 
-const DEFAULT_NUM_OF_BIKES: usize = 5;
+const FT_CONTRACT_ACCOUNT: &str = "sub.ft_account.testnet"; // <- あなたのftコントラクトをデプロイしたアカウントに変更してください！
+const AMOUNT_REWARD_FOR_INSPECTIONS: u128 = 15;
+
+/// 外部コントラクト(ftコントラクト)に実装されているメソッドをトレイトで定義
+#[ext_contract(ext_ft)]
+trait FungibleToken {
+    fn ft_transfer(&mut self, receiver_id: String, amount: String, memo: Option<String>);
+}
 
 /// バイクの状態遷移を表します。
 #[derive(BorshDeserialize, BorshSerialize)]
@@ -15,29 +22,29 @@ enum Bike {
 
 /// コントラクトを定義します
 #[near_bindgen]
-#[derive(BorshDeserialize, BorshSerialize)]
+#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct Contract {
     bikes: Vec<Bike>,
 }
 
-/// デフォルト処理を定義します。
-impl Default for Contract {
-    fn default() -> Self {
+/// メソッドの実装です。
+#[near_bindgen]
+impl Contract {
+    /// init関数の実装です。
+    #[init]
+    pub fn new(num_of_bikes: usize) -> Self {
+        log!("initialize Contract with {} bikes", num_of_bikes);
         Self {
             bikes: {
                 let mut bikes = Vec::new();
-                for _i in 0..DEFAULT_NUM_OF_BIKES {
+                for _i in 0..num_of_bikes {
                     bikes.push(Bike::Available);
                 }
                 bikes
             },
         }
     }
-}
 
-/// メソッドの実装です。
-#[near_bindgen]
-impl Contract {
     /// バイクの数を返却します。
     pub fn num_of_bikes(&self) -> usize {
         self.bikes.len()
@@ -103,9 +110,49 @@ impl Contract {
             }
             Bike::Inspection(inspector) => {
                 assert_eq!(inspector.clone(), user_id, "Fail due to wrong account");
-                self.bikes[index] = Bike::Available;
+                Self::return_inspected_bike(index);
             }
         };
+    }
+
+    /// 点検中から返却に変更する際の挙動を定義します。
+    /// 点検をしてくれたユーザに報酬(ft)を支払い, コールバックで返却処理をします。
+    pub fn return_inspected_bike(index: usize) -> Promise {
+        let contract_id = FT_CONTRACT_ACCOUNT.parse().unwrap();
+        let amount = AMOUNT_REWARD_FOR_INSPECTIONS.to_string();
+        let receiver_id = env::predecessor_account_id().to_string();
+
+        log!(
+            "{} transfer to {}: {} FT",
+            env::current_account_id(),
+            &receiver_id,
+            &amount
+        );
+
+        // cross contract call (contract_idのft_transfer()メソッドを呼び出す)
+        ext_ft::ext(contract_id)
+            .with_attached_deposit(1)
+            .ft_transfer(receiver_id, amount, None)
+            .then(
+                // callback (自身のcallback_return_bike()メソッドを呼び出す)
+                Self::ext(env::current_account_id())
+                    .with_static_gas(Gas(3_000_000_000_000))
+                    .callback_return_bike(index),
+            )
+    }
+
+    /// cross contract call の結果を元に処理を条件分岐します。
+    // #[private]: predecessor(このメソッドを呼び出しているアカウント)とcurrent_account(このコントラクトのアカウント)が同じことをチェックするマクロです.
+    // callbackの場合, コントラクトが自身のメソッドを呼び出すことを期待しています.
+    #[private]
+    pub fn callback_return_bike(&mut self, index: usize) {
+        assert_eq!(env::promise_results_count(), 1, "This is a callback method");
+        match env::promise_result(0) {
+            PromiseResult::NotReady => unreachable!(),
+            PromiseResult::Failed => panic!("Fail cross-contract call"),
+            // 成功時のみBikeを返却(使用可能に変更)
+            PromiseResult::Successful(_) => self.bikes[index] = Bike::Available,
+        }
     }
 }
 
@@ -133,13 +180,14 @@ mod tests {
     fn check_default() {
         let mut context = get_context(accounts(1)); // 0以外の番号のアカウントでコントラクトを呼び出します.
         testing_env!(context.build()); // テスト環境を初期化
-        let contract = Contract::default();
+        let init_num = 5;
+        let contract = Contract::new(init_num);
 
         // view関数の実行のみ許可する環境に初期化
         testing_env!(context.is_view(true).build());
 
-        assert_eq!(contract.num_of_bikes(), DEFAULT_NUM_OF_BIKES);
-        for i in 0..DEFAULT_NUM_OF_BIKES {
+        assert_eq!(contract.num_of_bikes(), init_num);
+        for i in 0..init_num {
             assert!(contract.is_available(i))
         }
     }
@@ -150,7 +198,7 @@ mod tests {
     fn check_inspecting_account() {
         let mut context = get_context(accounts(1));
         testing_env!(context.build());
-        let mut contract = Contract::default();
+        let mut contract = Contract::new(5);
 
         let test_index = contract.bikes.len() - 1;
         contract.inspect_bike(test_index);
@@ -174,7 +222,7 @@ mod tests {
     fn return_by_other_account() {
         let mut context = get_context(accounts(1));
         testing_env!(context.build());
-        let mut contract = Contract::default();
+        let mut contract = Contract::new(5);
 
         contract.inspect_bike(0);
 
