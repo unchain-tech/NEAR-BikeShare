@@ -30,8 +30,9 @@ export async function initContract() {
         "is_available",
         "who_is_using",
         "who_is_inspecting",
+        "amount_to_use_bike",
       ],
-      changeMethods: ["use_bike", "inspect_bike", "return_bike"],
+      changeMethods: ["inspect_bike", "return_bike"],
     }
   );
 
@@ -40,7 +41,12 @@ export async function initContract() {
     nearConfig.ftContractName,
     {
       viewMethods: ["ft_balance_of", "storage_balance_of"],
-      changeMethods: ["storage_deposit", "storage_unregister", "ft_transfer"],
+      changeMethods: [
+        "storage_deposit",
+        "storage_unregister",
+        "ft_transfer",
+        "ft_transfer_call",
+      ],
     }
   );
 }
@@ -80,13 +86,6 @@ export async function who_is_using(index) {
 
 export async function who_is_inspecting(index) {
   let response = await window.contract.who_is_inspecting({
-    index: index,
-  });
-  return response;
-}
-
-export async function use_bike(index) {
-  let response = await window.contract.use_bike({
     index: index,
   });
   return response;
@@ -157,6 +156,24 @@ export async function ft_transfer(receiver_id, amount) {
     },
     "300000000000000",
     "1" // セキュリティ上必要な 1 yoctoNEAR
+  );
+  return response;
+}
+
+export async function amount_to_use_bike() {
+  let amount = await window.contract.amount_to_use_bike();
+  return amount;
+}
+
+export async function ft_transfer_call(index, amount) {
+  let response = await window.ftContract.ft_transfer_call(
+    {
+      receiver_id: nearConfig.contractName,
+      amount: amount,
+      msg: index.toString(),
+    },
+    "300000000000000",
+    "1"
   );
   return response;
 }
