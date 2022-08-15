@@ -1,202 +1,401 @@
-import 'regenerator-runtime/runtime'
-import React from 'react'
+import React, { useEffect, useState } from "react";
 
-import './assets/css/global.css'
+import "./assets/css/global.css";
 
-import {login, logout, get_greeting, set_greeting} from './assets/js/near/utils'
-import getConfig from './assets/js/near/config'
-
+import {
+  login,
+  logout,
+  num_of_bikes,
+  is_available,
+  who_is_using,
+  who_is_inspecting,
+  use_bike,
+  inspect_bike,
+  return_bike,
+} from "./assets/js/near/utils";
 
 export default function App() {
-  // use React Hooks to store greeting in component state
-  const [greeting, setGreeting] = React.useState()
+  /** バイクの情報をフロント側で保持するための配列です */
+  const [allBikeInfo, setAllBikeInfo] = useState([]);
+  /**
+   * bikeInfoオブジェクトを定義します.
+   * allBikeInfoはbikeInfoオブジェクトの配列となります.
+   * 各属性はログインアカウントと連携した情報になります.
+   * available:  ログインアカウントはバイクを使用可能か否か
+   * in_use:     同じく使用中か否か
+   * inspection: 同じく点検中か否か
+   */
+  const initialBikeInfo = async () => {
+    return { available: false, in_use: false, inspection: false };
+  };
 
-  // when the user has not yet interacted with the form, disable the button
-  const [buttonDisabled, setButtonDisabled] = React.useState(true)
+  /** どの画面を描画するのかの状態を定義しています */
+  const RenderingStates = {
+    SIGN_IN: "sign_in",
+    REGISTRATION: "registration",
+    HOME: "home",
+    TRANSACTION: "transaction",
+  };
+  /** useStateを利用して描画する状態を保持します */
+  const [renderingState, setRenderingState] = useState(RenderingStates.HOME);
 
-  // after submitting the form, we want to show Notification
-  const [showNotification, setShowNotification] = React.useState(false)
+  /** 残高表示する際に利用します */
+  const [showBalance, setShowBalance] = useState(false);
+  const [balanceInfo, setBalanceInfo] = useState({});
+  const initialBalanceInfo = async () => {
+    return { account_id: "", balance: 0 };
+  };
 
-  // The useEffect hook can be used to fire side-effects during render
-  // Learn more: https://reactjs.org/docs/hooks-intro.html
-  React.useEffect(
-    () => {
-      // get_greeting is in near/utils.js
-      get_greeting()
-        .then(greetingFromContract => {
-          setGreeting(greetingFromContract)
-        })
-    },
+  /** コントラクト側で定義されている, バイクを使うのに必要なftを保持します */
+  const [amountToUseBike, setAmountToUseBike] = useState(0);
 
-    // The second argument to useEffect tells React when to re-run the effect
-    // Use an empty array to specify "only run on first render"
-    // This works because signing into NEAR Wallet reloads the page
-    []
-  )
+  const bikeImg = require("./assets/img/bike.png");
 
-  // if not signed in, return early with sign-in prompt
-  if (!window.walletConnection.isSignedIn()) {
+  // 初回レンダリング時の処理.
+  // サイン後にもブラウザのページがリロードされるので, この内容が実行されます.
+  useEffect(() => {
+    /** renderingStateを初期化します */
+    const initRenderingState = async () => {
+      if (!window.walletConnection.isSignedIn()) {
+        setRenderingState(RenderingStates.SIGN_IN);
+      }
+    };
+
+    /**
+     * allBikeInfoを初期化します。
+     * バイクの数をコントラクトから取得し,
+     * その数だけ loop 処理でバイク情報を作成します。
+     */
+    const InitAllBikeInfo = async () => {
+      const num = await num_of_bikes();
+      console.log("Num of bikes:", num);
+
+      let new_bikes = [];
+      for (let i = 0; i < num; i++) {
+        const bike = await createBikeInfo(i);
+        new_bikes.push(bike);
+      }
+
+      setAllBikeInfo(new_bikes);
+      console.log("Set bikes: ", new_bikes);
+    };
+
+    initRenderingState();
+    InitAllBikeInfo();
+  }, []);
+
+  /** 指定されたindexのバイク情報をフロント用に整形して返却します. */
+  const createBikeInfo = async (index) => {
+    let bike = await initialBikeInfo();
+    await is_available(index).then((is_available) => {
+      if (is_available) {
+        bike.available = is_available;
+        return bike;
+      }
+    });
+    await who_is_using(index).then((user_id) => {
+      // サインインしているユーザのアカウントidと同じであればユーザは使用中なので
+      // 使用中をtrueに変更します。
+      if (window.accountId === user_id) {
+        bike.in_use = true;
+        return bike;
+      }
+    });
+    await who_is_inspecting(index).then((inspector_id) => {
+      // サインインしているユーザのアカウントidと同じであればユーザは点検中なので
+      // 点検中をtrueに変更します。
+      if (window.accountId === inspector_id) {
+        bike.inspection = true;
+      }
+    });
+    return bike;
+  };
+
+  /** バイクを使用, バイク情報を更新します。 */
+  const useBikeThenUpdateInfo = async (index) => {
+    console.log("Use bike");
+    // 処理中は画面を切り替えるためにrenderingStatesを変更します。
+    setRenderingState(RenderingStates.TRANSACTION);
+
+    try {
+      await use_bike(index);
+    } catch (e) {
+      alert(e);
+    }
+    await updateBikeInfo(index);
+
+    setRenderingState(RenderingStates.HOME);
+  };
+
+  /** バイクを点検, バイク情報を更新します。 */
+  const inspectBikeThenUpdateInfo = async (index) => {
+    console.log("Inspect bike");
+    setRenderingState(RenderingStates.TRANSACTION);
+
+    try {
+      await inspect_bike(index);
+    } catch (e) {
+      alert(e);
+    }
+    await updateBikeInfo(index);
+
+    setRenderingState(RenderingStates.HOME);
+  };
+
+  /** バイクを返却, バイク情報を更新します。 */
+  const returnBikeThenUpdateInfo = async (index) => {
+    console.log("Return bike");
+    setRenderingState(RenderingStates.TRANSACTION);
+
+    try {
+      await return_bike(index);
+    } catch (e) {
+      alert(e);
+    }
+    await updateBikeInfo(index);
+
+    setRenderingState(RenderingStates.HOME);
+  };
+
+  /** 特定のバイク情報を更新してallBikeInfoにセットします。 */
+  const updateBikeInfo = async (index) => {
+    const new_bike = await createBikeInfo(index);
+
+    allBikeInfo[index] = new_bike;
+    setAllBikeInfo(allBikeInfo);
+    console.log("Update bikes: ", allBikeInfo);
+  };
+
+  // サインインしているアカウント情報のurlをログに表示
+  console.log(
+    "see:",
+    `https://explorer.testnet.near.org/accounts/${window.accountId}`
+  );
+  // コントラクトのアカウント情報のurlをログに表示
+  console.log(
+    "see:",
+    `https://explorer.testnet.near.org/accounts/${window.contract.contractId}`
+  );
+
+  /** サインアウトボタンの表示に使用します。 */
+  const signOutButton = () => {
     return (
-      <main>
-        <h1>
-          <label
-            htmlFor="greeting"
-            style={{
-              color: 'var(--secondary)',
-              borderBottom: '2px solid var(--secondary)'
-            }}
-          >
-            {greeting}
-          </label>!
-          Welcome to NEAR!
-        </h1>
-        <p>
-        Your contract is storing a greeting message in the NEAR blockchain. To
-        change it you need to sign in using the NEAR Wallet. It is very simple,
-        just use the button below.
-        </p>
-        <p>
-        Do not worry, this app runs in the test network ("testnet"). It works
-        just like the main network ("mainnet"), but using NEAR Tokens that are
-        only for testing!
-        </p>
-        <p style={{ textAlign: 'center', marginTop: '2.5em' }}>
-          <button onClick={login}>Sign in</button>
-        </p>
-      </main>
-    )
-  }
-
-  return (
-    // use React Fragment, <>, to avoid wrapping elements in unnecessary divs
-    <>
-      <button className="link" style={{ float: 'right' }} onClick={logout}>
+      <button className="link" style={{ float: "right" }} onClick={logout}>
         Sign out
       </button>
-      <main>
-        <h1>
-          <label
-            htmlFor="greeting"
-            style={{
-              color: 'var(--secondary)',
-              borderBottom: '2px solid var(--secondary)'
-            }}
-          >
-            {greeting}
-          </label>
-          {' '/* React trims whitespace around tags; insert literal space character when needed */}
-          {window.accountId}!
-        </h1>
-        <form onSubmit={async event => {
-          event.preventDefault()
+    );
+  };
 
-          // get elements from the form using their id attribute
-          const { fieldset, greeting } = event.target.elements
+  /** 登録解除ボタンの表示に使用します。 */
+  const unregisterButton = () => {
+    return (
+      <button className="link" style={{ float: "right" }}>
+        Unregister
+      </button>
+    );
+  };
 
-          // hold onto new user-entered value from React's SynthenticEvent for use after `await` call
-          const newGreeting = greeting.value
+  /** サインイン画面を表示します。 */
+  const requireSignIn = () => {
+    return (
+      <div>
+        <main>
+          <p style={{ textAlign: "center", marginTop: "2.5em" }}>
+            <button onClick={login}>Sign in</button>
+          </p>
+        </main>
+      </div>
+    );
+  };
 
-          // disable the form while the value gets updated on-chain
-          fieldset.disabled = true
+  /** 登録画面を表示します。 */
+  const requireRegistration = () => {
+    return (
+      <div>
+        {signOutButton()}
+        <div style={{ textAlign: "center" }}>
+          <h5>
+            Registration in ft contract is required before using the bike app
+          </h5>
+        </div>
+        <main>
+          <p style={{ textAlign: "center", marginTop: "2.5em" }}>
+            <button>storage deposit</button>
+          </p>
+        </main>
+      </div>
+    );
+  };
 
-          try {
-            // make an update call to the smart contract
-            // pass the value that the user entered in the greeting field
-            await set_greeting(newGreeting)
-          } catch (e) {
-            alert(
-              'Something went wrong! ' +
-              'Maybe you need to sign out and back in? ' +
-              'Check your browser console for more info.'
-            )
-            throw e
-          } finally {
-            // re-enable the form, whether the call succeeded or failed
-            fieldset.disabled = false
-          }
+  /** 画面のヘッダー部分の表示に使用します。 */
+  const header = () => {
+    return <h1>Hello {window.accountId} !</h1>;
+  };
 
-          // update local `greeting` variable to match persisted value
-          setGreeting(newGreeting)
+  /** トランザクション中の画面を表示します。 */
+  const transaction = () => {
+    return (
+      <div>
+        {header()}
+        <main>
+          <p> in process... </p>
+        </main>
+      </div>
+    );
+  };
 
-          // show Notification
-          setShowNotification(true)
-
-          // remove Notification again after css animation completes
-          // this allows it to be shown again next time the form is submitted
-          setTimeout(() => {
-            setShowNotification(false)
-          }, 11000)
-        }}>
-          <fieldset id="fieldset">
-            <label
-              htmlFor="greeting"
-              style={{
-                display: 'block',
-                color: 'var(--gray)',
-                marginBottom: '0.5em'
-              }}
-            >
-              Change greeting
-            </label>
-            <div style={{ display: 'flex' }}>
-              <input
-                autoComplete="off"
-                defaultValue={greeting}
-                id="greeting"
-                onChange={e => setButtonDisabled(e.target.value === greeting)}
-                style={{ flex: 1 }}
-              />
+  /**
+   * バイク情報の表示に使用します。
+   * allBikeInfoをリスト表示します。
+   */
+  const bikeContents = () => {
+    return (
+      <div>
+        {allBikeInfo.map((bike, index) => {
+          return (
+            <div class="bike" style={{ display: "flex" }}>
+              <div class="bike_img">
+                <img src={bikeImg} />
+              </div>
+              <div class="bike_index">: {index}</div>
               <button
-                disabled={buttonDisabled}
-                style={{ borderRadius: '0 5px 5px 0' }}
+                // ボタンを無効化する条件を定義
+                disabled={!bike.available}
+                onClick={() => useBikeThenUpdateInfo(index)}
               >
-                Save
+                use
               </button>
+              <button
+                // ボタンを無効化する条件を定義
+                disabled={!bike.available}
+                onClick={() => inspectBikeThenUpdateInfo(index)}
+              >
+                inspect
+              </button>
+              <button
+                // ボタンを無効化する条件を定義。
+                // ログインユーザがバイクを使用も点検もしていない場合は使用できないようにしています。
+                disabled={!bike.in_use && !bike.inspection}
+                onClick={() => returnBikeThenUpdateInfo(index)}
+              >
+                return
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  /** 残高表示に使用します。 */
+  const checkBalance = () => {
+    return (
+      <div class="balance_content">
+        <button>check my balance</button>
+        <button style={{ marginTop: "0.1em" }}>check contract's balance</button>
+        <span>or</span>
+        <form
+          onSubmit={async (event) => {
+            event.preventDefault();
+            const { fieldset, account } = event.target.elements;
+            const account_to_check = account.value;
+            fieldset.disabled = true;
+            try {
+            } catch (e) {
+              alert(e);
+            }
+            fieldset.disabled = false;
+          }}
+        >
+          <fieldset id="fieldset">
+            <div style={{ display: "flex" }}>
+              <input autoComplete="off" id="account" placeholder="account id" />
+              <button style={{ borderRadius: "0 5px 5px 0" }}>check</button>
             </div>
           </fieldset>
         </form>
-        <p>
-          Look at that! A Hello World app! This greeting is stored on the NEAR blockchain. Check it out:
-        </p>
-        <ol>
-          <li>
-            Look in <code>src/App.js</code> and <code>src/utils.js</code> – you'll see <code>get_greeting</code> and <code>set_greeting</code> being called on <code>contract</code>. What's this?
-          </li>
-          <li>
-            Ultimately, this <code>contract</code> code is defined in <code>assembly/main.ts</code> – this is the source code for your <a target="_blank" rel="noreferrer" href="https://docs.near.org/docs/develop/contracts/overview">smart contract</a>.</li>
-          <li>
-            When you run <code>yarn dev</code>, the code in <code>assembly/main.ts</code> gets deployed to the NEAR testnet. You can see how this happens by looking in <code>package.json</code> at the <code>scripts</code> section to find the <code>dev</code> command.</li>
-        </ol>
-        <hr />
-        <p>
-          To keep learning, check out <a target="_blank" rel="noreferrer" href="https://docs.near.org">the NEAR docs</a> or look through some <a target="_blank" rel="noreferrer" href="https://examples.near.org">example apps</a>.
-        </p>
-      </main>
-      {showNotification && <Notification />}
-    </>
-  )
-}
+        {showBalance && (
+          <div>
+            <p>{balanceInfo.account_id}'s</p>
+            <p>balance: {balanceInfo.balance}</p>
+          </div>
+        )}
+      </div>
+    );
+  };
 
-// this component gets rendered by App after the form is submitted
-function Notification() {
-  const { networkId } = getConfig(process.env.NODE_ENV || 'development')
-  const urlPrefix = `https://explorer.${networkId}.near.org/accounts`
+  /** ftの送信部分の表示に使用します。 */
+  const transferFt = () => {
+    return (
+      <div>
+        <form
+          onSubmit={async (event) => {
+            event.preventDefault();
+            const { fieldset, account } = event.target.elements;
+            const account_to_transfer = account.value;
+            fieldset.disabled = true;
+            try {
+            } catch (e) {
+              alert(e);
+            }
+            fieldset.disabled = false;
+          }}
+        >
+          <fieldset id="fieldset">
+            <label
+              htmlFor="account"
+              style={{
+                display: "block",
+                color: "var(--gray)",
+                marginBottom: "0.5em",
+                marginTop: "1em",
+              }}
+            >
+              give someone {amountToUseBike.toString()} ft
+            </label>
+            <div style={{ display: "flex" }}>
+              <input
+                autoComplete="off"
+                id="account"
+                style={{ flex: 1 }}
+                placeholder="account id"
+              />
+              <button style={{ borderRadius: "0 5px 5px 0" }}>transfer</button>
+            </div>
+          </fieldset>
+        </form>
+      </div>
+    );
+  };
 
-  return (
-    <aside>
-      <a target="_blank" rel="noreferrer" href={`${urlPrefix}/${window.accountId}`}>
-        {window.accountId}
-      </a>
-      {' '/* React trims whitespace around tags; insert literal space character when needed */}
-      called method: 'set_greeting' in contract:
-      {' '}
-      <a target="_blank" rel="noreferrer" href={`${urlPrefix}/${window.contract.contractId}`}>
-        {window.contract.contractId}
-      </a>
-      <footer>
-        <div>✔ Succeeded</div>
-        <div>Just now</div>
-      </footer>
-    </aside>
-  )
+  /** ホーム画面を表示します。 */
+  const home = () => {
+    return (
+      <div>
+        {signOutButton()}
+        {unregisterButton()}
+        {header()}
+        <main>
+          {bikeContents()}
+          {checkBalance()}
+          {transferFt()}
+        </main>
+      </div>
+    );
+  };
+
+  /** renderingStateに適した画面を表示します。 */
+  switch (renderingState) {
+    case RenderingStates.SIGN_IN:
+      return <div>{requireSignIn()}</div>;
+
+    case RenderingStates.REGISTRATION:
+      return <div>{requireRegistration()}</div>;
+
+    case RenderingStates.TRANSACTION:
+      return <div>{transaction()}</div>;
+
+    case RenderingStates.HOME:
+      return <div>{home()}</div>;
+  }
 }
