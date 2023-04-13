@@ -17,6 +17,7 @@
     "eslint-plugin-prettier": "^4.2.1",
     "eslint-plugin-promise": "^6.1.1",
     "eslint-plugin-react": "^7.32.2",
+    "lint-staged": "^13.2.0",
     "near-cli": "~3.3.0",
     "near-workspaces": "^2.0.0",
     "nodemon": "~2.0.16",
@@ -24,6 +25,7 @@
     "prettier": "^2.8.7",
     "process": "^0.11.10",
     "react-test-renderer": "~18.1.0",
+    "simple-git-hooks": "^2.8.1",
     "ts-node": "^10.8.0",
     "typescript": "^4.7.2"
   },
@@ -47,6 +49,9 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "simple-git-hooks": {
+    "pre-commit": "yarn fmt:check && yarn clippy && npx lint-staged"
   },
   "scripts": {
     "build": "npm run build:contract && npm run build:web",
