@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import './assets/css/global.css';
 import {
@@ -82,7 +82,7 @@ export default function App() {
       const num = await num_of_bikes();
       console.log('Num of bikes:', num);
 
-      let new_bikes = [];
+      const new_bikes = [];
       for (let i = 0; i < num; i++) {
         const bike = await createBikeInfo(i);
         new_bikes.push(bike);
@@ -99,7 +99,7 @@ export default function App() {
 
   /** 指定されたindexのバイク情報をフロント用に整形して返却します. */
   const createBikeInfo = async (index) => {
-    let bike = await initialBikeInfo();
+    const bike = await initialBikeInfo();
     await is_available(index).then((is_available) => {
       if (is_available) {
         bike.available = is_available;
@@ -210,7 +210,7 @@ export default function App() {
   const prepareBalanceInfo = async (account_id) => {
     const balance = await ft_balance_of(account_id);
 
-    let balance_info = await initialBalanceInfo();
+    const balance_info = await initialBalanceInfo();
     balance_info.account_id = account_id;
     balance_info.balance = balance;
 
@@ -309,11 +309,11 @@ export default function App() {
       <div>
         {allBikeInfo.map((bike, index) => {
           return (
-            <div class="bike" style={{ display: 'flex' }}>
-              <div class="bike_img">
+            <div className="bike" style={{ display: 'flex' }} key={index}>
+              <div className="bike_img">
                 <img src={bikeImg} />
               </div>
-              <div class="bike_index">: {index}</div>
+              <div className="bike_index">: {index}</div>
               <button
                 // ボタンを無効化する条件を定義
                 disabled={!bike.available}
@@ -346,7 +346,7 @@ export default function App() {
   /** 残高表示に使用します。 */
   const checkBalance = () => {
     return (
-      <div class="balance_content">
+      <div className="balance_content">
         <button onClick={() => prepareBalanceInfo(window.accountId)}>
           check my balance
         </button>
@@ -354,7 +354,7 @@ export default function App() {
           style={{ marginTop: '0.1em' }}
           onClick={() => prepareBalanceInfo(window.contract.contractId)}
         >
-          check contract's balance
+          check contract&apos;s balance
         </button>
         <span>or</span>
         <form
@@ -380,7 +380,7 @@ export default function App() {
         </form>
         {showBalance && (
           <div>
-            <p>{balanceInfo.account_id}'s</p>
+            <p>{balanceInfo.account_id}&apos;s</p>
             <p>balance: {balanceInfo.balance}</p>
           </div>
         )}
