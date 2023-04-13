@@ -1,24 +1,23 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState } from 'react';
 
-import "./assets/css/global.css";
-
+import './assets/css/global.css';
 import {
+  amount_to_use_bike,
+  ft_balance_of,
+  ft_transfer,
+  ft_transfer_call,
+  inspect_bike,
+  is_available,
   login,
   logout,
   num_of_bikes,
-  is_available,
-  who_is_using,
-  who_is_inspecting,
-  inspect_bike,
   return_bike,
-  ft_balance_of,
   storage_balance_of,
   storage_deposit,
   storage_unregister,
-  ft_transfer,
-  amount_to_use_bike,
-  ft_transfer_call,
-} from "./assets/js/near/utils";
+  who_is_inspecting,
+  who_is_using,
+} from './assets/js/near/utils';
 
 export default function App() {
   /** バイクの情報をフロント側で保持するための配列です */
@@ -37,10 +36,10 @@ export default function App() {
 
   /** どの画面を描画するのかの状態を定義しています */
   const RenderingStates = {
-    SIGN_IN: "sign_in",
-    REGISTRATION: "registration",
-    HOME: "home",
-    TRANSACTION: "transaction",
+    SIGN_IN: 'sign_in',
+    REGISTRATION: 'registration',
+    HOME: 'home',
+    TRANSACTION: 'transaction',
   };
   /** useStateを利用して描画する状態を保持します */
   const [renderingState, setRenderingState] = useState(RenderingStates.HOME);
@@ -49,13 +48,13 @@ export default function App() {
   const [showBalance, setShowBalance] = useState(false);
   const [balanceInfo, setBalanceInfo] = useState({});
   const initialBalanceInfo = async () => {
-    return { account_id: "", balance: 0 };
+    return { account_id: '', balance: 0 };
   };
 
   /** コントラクト側で定義されている, バイクを使うのに必要なftを保持します */
   const [amountToUseBike, setAmountToUseBike] = useState(0);
 
-  const bikeImg = require("./assets/img/bike.png");
+  const bikeImg = require('./assets/img/bike.png');
 
   // 初回レンダリング時の処理.
   // サイン後にもブラウザのページがリロードされるので, この内容が実行されます.
@@ -81,7 +80,7 @@ export default function App() {
     /** allBikeInfoを初期化します */
     const InitAllBikeInfo = async () => {
       const num = await num_of_bikes();
-      console.log("Num of bikes:", num);
+      console.log('Num of bikes:', num);
 
       let new_bikes = [];
       for (let i = 0; i < num; i++) {
@@ -90,7 +89,7 @@ export default function App() {
       }
 
       setAllBikeInfo(new_bikes);
-      console.log("Set bikes: ", new_bikes);
+      console.log('Set bikes: ', new_bikes);
     };
 
     initAmountToUseBike();
@@ -127,13 +126,13 @@ export default function App() {
 
   /** バイクを使用, バイク情報を更新します。 */
   const transferFtToUseBike = async (index) => {
-    console.log("Transfer ft to use bike");
+    console.log('Transfer ft to use bike');
 
     // 不要なトランザクションを避けるためにユーザの残高を確認
     const balance = await ft_balance_of(window.accountId);
 
     if (balance < amountToUseBike) {
-      alert(amountToUseBike + "ft is required to use the bike");
+      alert(amountToUseBike + 'ft is required to use the bike');
     } else {
       try {
         ft_transfer_call(index, amountToUseBike.toString());
@@ -147,7 +146,7 @@ export default function App() {
 
   /** バイクを点検, バイク情報を更新します。 */
   const inspectBikeThenUpdateInfo = async (index) => {
-    console.log("Inspect bike");
+    console.log('Inspect bike');
     setRenderingState(RenderingStates.TRANSACTION);
 
     try {
@@ -162,7 +161,7 @@ export default function App() {
 
   /** バイクを返却, バイク情報を更新します。 */
   const returnBikeThenUpdateInfo = async (index) => {
-    console.log("Return bike");
+    console.log('Return bike');
     setRenderingState(RenderingStates.TRANSACTION);
 
     try {
@@ -181,7 +180,7 @@ export default function App() {
 
     allBikeInfo[index] = new_bike;
     setAllBikeInfo(allBikeInfo);
-    console.log("Update bikes: ", allBikeInfo);
+    console.log('Update bikes: ', allBikeInfo);
   };
 
   /** account_idがftコントラクトに登録しているかを判別します。 */
@@ -191,7 +190,7 @@ export default function App() {
 
     // ストレージ残高にnullが返ってくる場合は未登録を意味します.
     if (balance === null) {
-      console.log("account is not yet registered");
+      console.log('account is not yet registered');
       return false;
     } else {
       return true;
@@ -221,19 +220,19 @@ export default function App() {
 
   // サインインしているアカウント情報のurlをログに表示
   console.log(
-    "see:",
-    `https://explorer.testnet.near.org/accounts/${window.accountId}`
+    'see:',
+    `https://explorer.testnet.near.org/accounts/${window.accountId}`,
   );
   // コントラクトのアカウント情報のurlをログに表示
   console.log(
-    "see:",
-    `https://explorer.testnet.near.org/accounts/${window.contract.contractId}`
+    'see:',
+    `https://explorer.testnet.near.org/accounts/${window.contract.contractId}`,
   );
 
   /** サインアウトボタンの表示に使用します。 */
   const signOutButton = () => {
     return (
-      <button className="link" style={{ float: "right" }} onClick={logout}>
+      <button className="link" style={{ float: 'right' }} onClick={logout}>
         Sign out
       </button>
     );
@@ -244,7 +243,7 @@ export default function App() {
     return (
       <button
         className="link"
-        style={{ float: "right" }}
+        style={{ float: 'right' }}
         onClick={storage_unregister}
       >
         Unregister
@@ -257,7 +256,7 @@ export default function App() {
     return (
       <div>
         <main>
-          <p style={{ textAlign: "center", marginTop: "2.5em" }}>
+          <p style={{ textAlign: 'center', marginTop: '2.5em' }}>
             <button onClick={login}>Sign in</button>
           </p>
         </main>
@@ -270,13 +269,13 @@ export default function App() {
     return (
       <div>
         {signOutButton()}
-        <div style={{ textAlign: "center" }}>
+        <div style={{ textAlign: 'center' }}>
           <h5>
             Registration in ft contract is required before using the bike app
           </h5>
         </div>
         <main>
-          <p style={{ textAlign: "center", marginTop: "2.5em" }}>
+          <p style={{ textAlign: 'center', marginTop: '2.5em' }}>
             <button onClick={newUserRegister}>storage deposit</button>
           </p>
         </main>
@@ -310,7 +309,7 @@ export default function App() {
       <div>
         {allBikeInfo.map((bike, index) => {
           return (
-            <div class="bike" style={{ display: "flex" }}>
+            <div class="bike" style={{ display: 'flex' }}>
               <div class="bike_img">
                 <img src={bikeImg} />
               </div>
@@ -352,7 +351,7 @@ export default function App() {
           check my balance
         </button>
         <button
-          style={{ marginTop: "0.1em" }}
+          style={{ marginTop: '0.1em' }}
           onClick={() => prepareBalanceInfo(window.contract.contractId)}
         >
           check contract's balance
@@ -373,9 +372,9 @@ export default function App() {
           }}
         >
           <fieldset id="fieldset">
-            <div style={{ display: "flex" }}>
+            <div style={{ display: 'flex' }}>
               <input autoComplete="off" id="account" placeholder="account id" />
-              <button style={{ borderRadius: "0 5px 5px 0" }}>check</button>
+              <button style={{ borderRadius: '0 5px 5px 0' }}>check</button>
             </div>
           </fieldset>
         </form>
@@ -402,7 +401,7 @@ export default function App() {
             try {
               await ft_transfer(
                 account_to_transfer,
-                amountToUseBike.toString()
+                amountToUseBike.toString(),
               );
             } catch (e) {
               alert(e);
@@ -414,22 +413,22 @@ export default function App() {
             <label
               htmlFor="account"
               style={{
-                display: "block",
-                color: "var(--gray)",
-                marginBottom: "0.5em",
-                marginTop: "1em",
+                display: 'block',
+                color: 'var(--gray)',
+                marginBottom: '0.5em',
+                marginTop: '1em',
               }}
             >
               give someone {amountToUseBike.toString()} ft
             </label>
-            <div style={{ display: "flex" }}>
+            <div style={{ display: 'flex' }}>
               <input
                 autoComplete="off"
                 id="account"
                 style={{ flex: 1 }}
                 placeholder="account id"
               />
-              <button style={{ borderRadius: "0 5px 5px 0" }}>transfer</button>
+              <button style={{ borderRadius: '0 5px 5px 0' }}>transfer</button>
             </div>
           </fieldset>
         </form>
