@@ -1,32 +1,27 @@
 {
-  "name": "greeter",
+  "name": "NEAR-BikeShare",
   "version": "1.0.0",
   "license": "(MIT AND Apache-2.0)",
-  "scripts": {
-    "build": "npm run build:contract && npm run build:web",
-      "build:contract": "cd contract && rustup target add wasm32-unknown-unknown && cargo build --all --target wasm32-unknown-unknown --release && cp ./target/wasm32-unknown-unknown/release/bike_share.wasm ../out/main.wasm",
-      "build:web": "parcel build frontend/index.html --public-url ./",
-      "deploy": "npm run build:contract && near dev-deploy --initFunction 'new' --initArgs '{\"num_of_bikes\": 5}'",
-      "reset": "rm -f ./neardev/dev-account.env ",
-      "init": "export $(cat ./neardev/dev-account.env | xargs) FT_CONTRACT=sub.ft_account.testnet FT_OWNER=ft_account.testnet && near call $FT_CONTRACT storage_deposit '' --accountId $CONTRACT_NAME --amount 0.00125 && near call $FT_CONTRACT ft_transfer '{\"receiver_id\": \"'$CONTRACT_NAME'\", \"amount\": \"100\"}' --accountId $FT_OWNER --amount 0.000000000000000000000001",
-      "start": "npm run reset && npm run deploy && npm run init && env-cmd -f ./neardev/dev-account.env parcel frontend/index.html --open",
-    "dev": "nodemon --watch contract -e ts --exec \"npm run start\"",
-    "test": "npm run build:contract && npm run test:unit && npm run test:integration",
-      "test:unit": "cd contract && cargo test",
-      "test:integration": "npm run test:integration:ts && npm run test:integration:rs",
-        "test:integration:ts": "cd integration-tests/ts && npm run test",
-        "test:integration:rs": "cd integration-tests/rs && cargo run --example integration-tests"
-  },
   "devDependencies": {
     "@babel/core": "~7.18.2",
     "@babel/preset-env": "~7.18.2",
     "@babel/preset-react": "~7.17.12",
+    "@trivago/prettier-plugin-sort-imports": "^4.1.1",
     "ava": "^4.2.0",
     "env-cmd": "~10.1.0",
+    "eslint": "^8.37.0",
+    "eslint-config-prettier": "^8.8.0",
+    "eslint-config-standard": "^17.0.0",
+    "eslint-plugin-import": "^2.27.5",
+    "eslint-plugin-n": "^15.7.0",
+    "eslint-plugin-prettier": "^4.2.1",
+    "eslint-plugin-promise": "^6.1.1",
+    "eslint-plugin-react": "^7.32.2",
     "near-cli": "~3.3.0",
     "near-workspaces": "^2.0.0",
     "nodemon": "~2.0.16",
     "parcel": "^2.6.0",
+    "prettier": "^2.8.7",
     "process": "^0.11.10",
     "react-test-renderer": "~18.1.0",
     "ts-node": "^10.8.0",
@@ -34,7 +29,6 @@
   },
   "dependencies": {
     "near-api-js": "~0.44.2",
-     
     "react": "~18.1.0",
     "react-dom": "~18.1.0",
     "regenerator-runtime": "~0.13.9"
@@ -53,5 +47,28 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "scripts": {
+    "build": "npm run build:contract && npm run build:web",
+    "build:contract": "cd contract && rustup target add wasm32-unknown-unknown && cargo build --all --target wasm32-unknown-unknown --release && mkdir -p ../out/ && cp ./target/wasm32-unknown-unknown/release/bike_share.wasm ../out/main.wasm",
+    "build:web": "parcel build frontend/index.html --public-url ./",
+    "deploy": "npm run build:contract && near dev-deploy --initFunction 'new' --initArgs '{\"num_of_bikes\": 5}'",
+    "reset": "rm -f ./neardev/dev-account.env ",
+    "init": "export $(cat ./neardev/dev-account.env | xargs) FT_CONTRACT=sub.ft_account.testnet FT_OWNER=ft_account.testnet && near call $FT_CONTRACT storage_deposit '' --accountId $CONTRACT_NAME --amount 0.00125 && near call $FT_CONTRACT ft_transfer '{\"receiver_id\": \"'$CONTRACT_NAME'\", \"amount\": \"100\"}' --accountId $FT_OWNER --amount 0.000000000000000000000001",
+    "start": "npm run reset && npm run deploy && npm run init && env-cmd -f ./neardev/dev-account.env parcel frontend/index.html --open",
+    "dev": "nodemon --watch contract -e ts --exec \"npm run start\"",
+    "test": "npm run build:contract && npm run test:unit && npm run test:integration",
+    "test:unit": "cd contract && cargo test",
+    "test:integration": "npm run test:integration:ts && npm run test:integration:rs",
+    "test:integration:ts": "cd integration-tests/ts && npm run test",
+    "test:integration:rs": "cd integration-tests/rs && cargo run --example integration-tests",
+    "fmt:check": "cd contract && cargo fmt --check",
+    "fmt": "cd contract && cargo fmt",
+    "clippy": "cd contract && cargo clippy -- -D warnings",
+    "fix": "cd contract && cargo fix",
+    "prettier:check": "prettier --check --ignore-unknown --no-error-on-unmatched-pattern --ignore-path .prettierignore .",
+    "prettier": "prettier --write --ignore-unknown --no-error-on-unmatched-pattern --ignore-path .prettierignore .",
+    "lint": "eslint .",
+    "lint:fix": "eslint --fix ."
   }
 }
