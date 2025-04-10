@@ -11,6 +11,7 @@ const AMOUNT_TO_USE_BIKE: u128 = 30;
 
 /// 外部コントラクト(ftコントラクト)に実装されているメソッドをトレイトで定義
 #[ext_contract(ext_ft)]
+#[allow(dead_code)]
 trait FungibleToken {
     fn ft_transfer(&mut self, receiver_id: String, amount: String, memo: Option<String>);
 }
