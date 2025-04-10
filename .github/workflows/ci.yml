@@ -6,7 +6,7 @@ jobs:
   setup:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22.x
@@ -14,7 +14,9 @@ jobs:
       - uses: actions/cache@v4
         id: yarn-cache
         with:
-          path: '**/node_modules'
+          path: |
+            ${{ github.workspace }}/node_modules
+            ${{ github.workspace }}/.yarn/cache
           key: ${{ runner.os }}-${{ hashFiles('**/yarn.lock') }}
       - name: Install packages
         # if: steps.yarn-cache.outputs.cache-hit != 'true'
@@ -27,7 +29,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/cache@v4
         with:
-          path: '**/node_modules'
+          path: |
+            ${{ github.workspace }}/node_modules
+            ${{ github.workspace }}/.yarn/cache
           key: ${{ runner.os }}-${{ hashFiles('**/yarn.lock') }}
       - name: clippy
         run: yarn clippy
@@ -45,7 +49,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/cache@v4
         with:
-          path: '**/node_modules'
+          path: |
+            ${{ github.workspace }}/node_modules
+            ${{ github.workspace }}/.yarn/cache
           key: ${{ runner.os }}-${{ hashFiles('**/yarn.lock') }}
       - name: cargo test
         run: yarn test:unit
